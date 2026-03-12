@@ -69,9 +69,11 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
 
     recognition.onerror = (event: any) => {
       if (event.error === 'not-allowed') {
-        setError('Доступ к микрофону запрещён');
+        setError('Доступ к микрофону запрещён в настройках браузера');
+      } else if (event.error === 'network') {
+        setError('Сервис распознавания речи в браузере недоступен (ошибка сети). Попробуйте ещё раз позже или используйте текстовый ввод.');
       } else if (event.error !== 'aborted') {
-        setError(`Ошибка: ${event.error}`);
+        setError('Произошла ошибка голосового ввода. Попробуйте ещё раз.');
       }
       setListening(false);
     };

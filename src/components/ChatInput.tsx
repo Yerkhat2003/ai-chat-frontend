@@ -15,7 +15,7 @@ export function ChatInput({ onSend, disabled }: Props) {
   const voiceCommittedRef = useRef('');
 
   const handleSubmit = useCallback(() => {
-    if (!value.trim() || disabled) return;
+    if (disabled) return;
     onSend(value);
     setValue('');
   }, [value, disabled, onSend]);
@@ -100,7 +100,7 @@ export function ChatInput({ onSend, disabled }: Props) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
+          disabled={disabled}
           className="flex items-center justify-center h-full px-5 rounded-2xl
           bg-[#1C4C9A] hover:bg-[#2455AA]
           transition-colors disabled:opacity-50"

@@ -14,7 +14,7 @@ export function ChatResponse({ text, className = '', streaming = false }: Props)
           <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[10px]">
             AI
           </span>
-          <span className="uppercase tracking-wide font-semibold">Ответ ассистента</span>
+          <span className="uppercase tracking-wide font-semibold">Assistant response</span>
         </span>
         {streaming && (
           <span className="inline-flex items-center gap-1 text-[10px] text-sky-100">
@@ -22,14 +22,14 @@ export function ChatResponse({ text, className = '', streaming = false }: Props)
               <span className="absolute inset-0 rounded-full bg-white/30 animate-ping" />
               <span className="relative inline-block h-4 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]" />
             </span>
-            Печатает ответ…
+            Typing…
           </span>
         )}
       </div>
       <p className="text-sm leading-relaxed text-slate-50">
         {text || (
           <span className="text-slate-500">
-            Ответ появится здесь сразу после того, как ассистент обработает ваш запрос.
+            The answer will appear here as soon as the assistant finishes processing your request.
           </span>
         )}
       </p>

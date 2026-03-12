@@ -33,7 +33,7 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
 
   const startListening = useCallback(() => {
     if (!isSupported) {
-      setError('Голосовой ввод не поддерживается в этом браузере');
+      setError('Voice input is not supported in this browser.');
       return;
     }
 
@@ -49,7 +49,7 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
       }).webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
-      setError('Голосовой ввод недоступен');
+      setError('Speech recognition is not available.');
       return;
     }
 
@@ -69,11 +69,11 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
 
     recognition.onerror = (event: any) => {
       if (event.error === 'not-allowed') {
-        setError('Доступ к микрофону запрещён в настройках браузера');
+        setError('Microphone access is blocked in browser settings.');
       } else if (event.error === 'network') {
-        setError('Сервис распознавания речи в браузере недоступен (ошибка сети). Попробуйте ещё раз позже или используйте текстовый ввод.');
+        setError('Browser speech recognition service is unavailable (network error). Try again later or use text input.');
       } else if (event.error !== 'aborted') {
-        setError('Произошла ошибка голосового ввода. Попробуйте ещё раз.');
+        setError('An error occurred while using voice input. Please try again.');
       }
       setListening(false);
     };
@@ -85,7 +85,7 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
       recognitionRef.current = recognition;
       setListening(true);
     } catch (e) {
-      setError('Не удалось запустить распознавание речи');
+      setError('Failed to start speech recognition.');
     }
   }, [isSupported, onResult]);
 

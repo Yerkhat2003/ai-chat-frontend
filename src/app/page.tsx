@@ -29,7 +29,7 @@ export default function Home() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) {
-        setError('Введите сообщение');
+        setError('Please enter a message.');
         return;
       }
 
@@ -70,13 +70,13 @@ export default function Home() {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           const message =
-            data?.message || data?.error || `Ошибка ${res.status}`;
+            data?.message || data?.error || `Request failed with status ${res.status}`;
           throw new Error(message);
         }
 
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
-        if (!reader) throw new Error('Нет потока ответа');
+        if (!reader) throw new Error('Response stream is not available.');
 
         while (true) {
           const { done, value } = await reader.read();
@@ -84,9 +84,9 @@ export default function Home() {
           const chunk = decoder.decode(value, { stream: true });
           bufferRef.current += chunk;
         }
-        if (!bufferRef.current.trim()) bufferRef.current = 'Нет ответа от модели.';
+        if (!bufferRef.current.trim()) bufferRef.current = 'No response from the model.';
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Ошибка при запросе');
+        setError(err instanceof Error ? err.message : 'Unexpected error while requesting the model.');
         if (tickRef.current) {
           clearInterval(tickRef.current);
           tickRef.current = null;
@@ -133,15 +133,6 @@ export default function Home() {
         </header>
 
         <section className="w-full max-w-2xl flex flex-col items-center gap-4 flex-1 justify-center">
-          {error && (
-            <div className="inline-flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-100 max-w-md">
-              <span className="mt-0.5 h-4 w-4 rounded-full border border-red-300/70 flex items-center justify-center text-[10px]">
-                !
-              </span>
-              <p>{error}</p>
-            </div>
-          )}
-
           {lastQuestion && (
             <div className="w-full space-y-4">
               <div className="rounded-2xl bg-[#072E6A] px-4 py-3 text-sm text-slate-50 shadow-[0_18px_40px_rgba(0,0,0,0.4)]">
@@ -157,7 +148,7 @@ export default function Home() {
         </section>
 
         <footer className="w-full max-w-2xl mt-4">
-          <ChatInput onSend={sendMessage} disabled={loading} />
+          <ChatInput onSend={sendMessage} disabled={loading} error={error} />
         </footer>
       </div>
     </main>

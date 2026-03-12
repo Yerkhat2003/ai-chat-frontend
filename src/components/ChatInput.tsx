@@ -7,9 +7,10 @@ import { useMicLevel } from '@/hooks/useMicLevel';
 type Props = {
   onSend: (text: string) => void;
   disabled?: boolean;
+  error?: string | null;
 };
 
-export function ChatInput({ onSend, disabled }: Props) {
+export function ChatInput({ onSend, disabled, error }: Props) {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceCommittedRef = useRef('');
@@ -117,8 +118,8 @@ export function ChatInput({ onSend, disabled }: Props) {
           </svg>
         </button>
       </div>
-      {voiceError && (
-        <p className="mt-1 text-xs text-red-300">{voiceError}</p>
+      {(error || voiceError) && (
+        <p className="mt-1 text-xs text-red-300">{error ?? voiceError}</p>
       )}
     </div>
   );

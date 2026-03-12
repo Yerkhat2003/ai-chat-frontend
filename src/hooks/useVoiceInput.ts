@@ -2,10 +2,17 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-type SpeechRecognition = typeof window.SpeechRecognition | undefined;
-type SpeechRecognitionInstance = InstanceType<
-  NonNullable<typeof window.SpeechRecognition>
->;
+type SpeechRecognitionInstance = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  onend: (() => void) | null;
+};
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
 export type VoiceResultHandler = (text: string, isFinal: boolean) => void;
 
@@ -32,10 +39,14 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
 
     setError(null);
     const SpeechRecognitionAPI =
-      (window as unknown as { SpeechRecognition?: SpeechRecognition })
-        .SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: SpeechRecognition })
-        .webkitSpeechRecognition;
+      (window as unknown as {
+        SpeechRecognition?: SpeechRecognitionConstructor;
+        webkitSpeechRecognition?: SpeechRecognitionConstructor;
+      }).SpeechRecognition ||
+      (window as unknown as {
+        SpeechRecognition?: SpeechRecognitionConstructor;
+        webkitSpeechRecognition?: SpeechRecognitionConstructor;
+      }).webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
       setError('Голосовой ввод недоступен');
@@ -47,7 +58,7 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
     recognition.continuous = true;
     recognition.interimResults = true;
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       const results = event.results;
       for (let i = event.resultIndex; i < results.length; i++) {
         const transcript = (results[i][0]?.transcript ?? '').trim();
@@ -56,7 +67,7 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
       }
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       if (event.error === 'not-allowed') {
         setError('Доступ к микрофону запрещён');
       } else if (event.error !== 'aborted') {
@@ -96,3 +107,4 @@ export function useVoiceInput(onResult: VoiceResultHandler) {
     stopListening,
   };
 }
+

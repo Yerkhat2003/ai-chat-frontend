@@ -369,6 +369,25 @@ export default function ChatDetailPage() {
     router.push('/');
   };
 
+  const shareCurrentChat = async () => {
+    if (!chat) return;
+
+    try {
+      const data = await apiRequest<{ token: string; shareUrlPath: string }>(
+        `/chats/${chat.id}/share`,
+        {
+          method: 'POST',
+          auth: true,
+        },
+      );
+      const shareUrl = `${window.location.origin}${data.shareUrlPath}`;
+      await navigator.clipboard.writeText(shareUrl);
+      showSuccess('Share link copied');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to create share link');
+    }
+  };
+
   const renameCurrentChat = async () => {
     if (!chat) return;
     const nextTitle = window.prompt('Rename chat', chat.title)?.trim();
@@ -481,6 +500,13 @@ export default function ChatDetailPage() {
               <h1 className="text-lg sm:text-xl font-semibold truncate">{chat?.title ?? 'Chat'}</h1>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void shareCurrentChat()}
+                className="rounded-lg border border-cyan-300/35 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-500/10 transition"
+              >
+                Share
+              </button>
               <button
                 type="button"
                 onClick={() => void renameCurrentChat()}

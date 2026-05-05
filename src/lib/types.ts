@@ -26,6 +26,13 @@ export type ChatWithMessages = Chat & {
   messages: Message[];
 };
 
+export type SharedChatWithMessages = {
+  id: string;
+  title: string;
+  createdAt: string;
+  messages: Message[];
+};
+
 export type PaginatedChats = {
   items: Chat[];
   meta: {

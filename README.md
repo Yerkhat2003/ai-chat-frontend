@@ -1,41 +1,72 @@
-# ai-chat-frontend
+# AI Chat Frontend
 
-Next.js 14 frontend for AI chat capstone.
+Фронт для capstone-проекта: чат-приложение на Next.js, где можно логиниться, создавать чаты, стримить ответы и рулить админкой.
 
-## Run locally
+## Что внутри
+
+- Auth: регистрация, логин, верификация почты
+- Чаты: создание, список, поиск, удаление, rename title
+- Сообщения: стриминг, редактирование, история правок
+- Админка: роли, права, пользователи, аудит, аналитика
+- UI: адаптив, toasts, loading states, empty states
+
+## Стек
+
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+
+## Локальный запуск
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env.local
-npm run dev
+pnpm dev
 ```
 
-## Environment
+Откроется на `http://localhost:3000`.
 
-- `NEXT_PUBLIC_API_URL=https://your-api.onrender.com`
+## Переменные окружения
 
-## Routes
+`.env.local`:
 
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+Прод:
+
+- Vercel -> `NEXT_PUBLIC_API_URL=https://ai-chat-backend-bjwr.onrender.com`
+
+## Основные роуты
+
+- `/` - стартовая страница чата
 - `/auth/login`
 - `/auth/register`
 - `/dashboard`
 - `/chat/[id]`
+- `/admin`
 
-## Features
+## E2E тесты
 
-- JWT auth with token stored in `localStorage`
-- Chat list with pagination and title search
-- Chat detail with persisted message history
-- Message send flow integrated with backend `POST /messages`
-- Loading and inline error states
+```bash
+pnpm run test:e2e:list
+pnpm run test:e2e
+```
 
-## Deploy checklist
+## Deploy checklist (быстрый)
 
-1. Deploy backend to Render.
-2. Set frontend env `NEXT_PUBLIC_API_URL` to backend URL in Vercel.
-3. Set backend `CORS_ORIGIN` to frontend URL.
-4. Verify:
-   - login/register works
-   - `/dashboard` loads chats
-   - `/chat/[id]` loads history and sends messages
-   - unauthorized users are redirected to `/auth/login`
+1. Залить backend на Render/Railway
+2. В Vercel прописать `NEXT_PUBLIC_API_URL`
+3. На backend выставить `CORS_ORIGIN` под frontend URL
+4. Проверить логин, чат, стриминг, админку
+
+## AI tools (как использовал)
+
+Честно и по кайфу:
+
+- Cursor - основной coding flow: быстро править компоненты, гонять рефакторы, тесты и фиксы
+- ChatGPT - продумывал архитектуру, декомпозировал сложные куски (auth/rbac/streaming), проверял edge-cases
+
+AI использовался как ассистент, йоу.

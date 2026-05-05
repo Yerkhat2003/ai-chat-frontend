@@ -91,6 +91,24 @@ export default function DashboardPage() {
     }
   };
 
+  const renameChat = async (chatId: string, currentTitle: string) => {
+    const nextTitle = window.prompt('New chat title', currentTitle)?.trim();
+    if (!nextTitle || nextTitle === currentTitle) return;
+
+    try {
+      const updated = await apiRequest<Chat>(`/chats/${chatId}`, {
+        method: 'PATCH',
+        auth: true,
+        body: { title: nextTitle },
+      });
+      setItems((prev) =>
+        prev.map((chat) => (chat.id === chatId ? { ...chat, title: updated.title } : chat)),
+      );
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to rename chat');
+    }
+  };
+
   const logout = async () => {
     const refreshToken = getRefreshToken();
     if (refreshToken) {
@@ -182,13 +200,22 @@ export default function DashboardPage() {
               <Link href={`/chat/${chat.id}`} className="truncate text-sm font-medium hover:underline">
                 {chat.title}
               </Link>
-              <button
-                type="button"
-                onClick={() => void deleteChat(chat.id)}
-                className="rounded-lg border border-red-300/35 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
-              >
-                Delete
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void renameChat(chat.id, chat.title)}
+                  className="rounded-lg border border-white/25 px-2 py-1 text-xs text-main hover:bg-white/10"
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteChat(chat.id)}
+                  className="rounded-lg border border-red-300/35 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
+                >
+                  Delete
+                </button>
+              </div>
             </motion.div>
           ))}
         </GlassPanel>

@@ -369,6 +369,24 @@ export default function ChatDetailPage() {
     router.push('/');
   };
 
+  const renameCurrentChat = async () => {
+    if (!chat) return;
+    const nextTitle = window.prompt('Rename chat', chat.title)?.trim();
+    if (!nextTitle || nextTitle === chat.title) return;
+
+    try {
+      const updated = await apiRequest<{ title: string }>(`/chats/${chat.id}`, {
+        method: 'PATCH',
+        auth: true,
+        body: { title: nextTitle },
+      });
+      setChat((prev) => (prev ? { ...prev, title: updated.title } : prev));
+      showSuccess('Chat renamed');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to rename chat');
+    }
+  };
+
   const handleCopy = async (content: string) => {
     try {
       await navigator.clipboard.writeText(content);
@@ -463,6 +481,13 @@ export default function ChatDetailPage() {
               <h1 className="text-lg sm:text-xl font-semibold truncate">{chat?.title ?? 'Chat'}</h1>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void renameCurrentChat()}
+                className="rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
+              >
+                Rename
+              </button>
               <select
                 value={persona}
                 onChange={(e) => onPersonaChange(e.target.value as PersonaMode)}

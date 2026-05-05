@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeBootstrap } from '@/components/ThemeBootstrap';
+import { ToastProvider } from '@/components/ui/ToastProvider';
 
 export const metadata: Metadata = {
-  title: 'Chat with AI',
-  description: 'Chat with ChatGPT',
+  title: 'AI Chat App',
+  description: 'AI chat with saved dialogs',
 };
 
 export default function RootLayout({
@@ -12,8 +14,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
-      <body>{children}</body>
+    <html lang="en">
+      <body>
+        <ThemeBootstrap />
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

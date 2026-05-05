@@ -1,155 +1,124 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChatInput } from '@/components/ChatInput';
-import { ChatResponse } from '@/components/ChatResponse';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '');
-const TICK_MS = 32;
-const CHARS_PER_TICK = 2;
+import { ChatSidebar } from '@/components/chat/ChatSidebar';
+import { GlassPanel } from '@/components/ui/GlassPanel';
+import { AnimatedButton } from '@/components/ui/AnimatedButton';
+import { useToast } from '@/components/ui/ToastProvider';
+import { clearAccessToken, isAuthenticated } from '@/lib/auth';
+import { apiRequest } from '@/lib/api';
 
 export default function Home() {
-  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
-  const [reply, setReply] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const bufferRef = useRef('');
-  const displayedLenRef = useRef(0);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState('');
+  const { showError } = useToast();
 
   useEffect(() => {
-    return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
-    };
-  }, []);
+    if (!isAuthenticated()) {
+      router.replace('/auth/login');
+      return;
+    }
+    setAuthChecked(true);
+  }, [router]);
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) {
-        setError('Please enter a message.');
-        return;
-      }
+  const getAutoTitle = (text: string) => {
+    const normalized = text.trim().replace(/\s+/g, ' ');
+    if (!normalized) return 'New chat';
+    return normalized.length > 48 ? `${normalized.slice(0, 48).trim()}...` : normalized;
+  };
 
-      setError(null);
-      setReply('');
-      bufferRef.current = '';
-      displayedLenRef.current = 0;
-      setLastQuestion(trimmed);
-      setLoading(true);
+  const handleSendFirstMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      showError('Please enter a message.');
+      return;
+    }
 
-      if (tickRef.current) {
-        clearInterval(tickRef.current);
-        tickRef.current = null;
-      }
-      tickRef.current = setInterval(() => {
-        const buf = bufferRef.current;
-        const len = displayedLenRef.current;
-        if (buf.length === 0) return;
-        if (len >= buf.length) {
-          if (tickRef.current) {
-            clearInterval(tickRef.current);
-            tickRef.current = null;
-          }
-          return;
-        }
-        const next = Math.min(len + CHARS_PER_TICK, buf.length);
-        displayedLenRef.current = next;
-        setReply(buf.slice(0, next));
-      }, TICK_MS);
+    setSending(true);
+    setDraft('');
+    try {
+      const newChat = await apiRequest<{ id: string; title: string }>('/chats', {
+        method: 'POST',
+        auth: true,
+        body: { title: getAutoTitle(trimmed) },
+      });
 
-      try {
-        const res = await fetch(`${API_URL}/chat/message/stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: trimmed }),
-        });
+      await apiRequest('/messages', {
+        method: 'POST',
+        auth: true,
+        body: {
+          chatId: newChat.id,
+          content: trimmed,
+          promptContent: trimmed,
+        },
+      });
 
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          const message =
-            data?.message || data?.error || `Request failed with status ${res.status}`;
-          throw new Error(message);
-        }
+      router.push(`/chat/${newChat.id}`);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to start chat');
+    } finally {
+      setSending(false);
+    }
+  };
 
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        if (!reader) throw new Error('Response stream is not available.');
+  const handleNewChat = () => {
+    setDraft('');
+  };
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          bufferRef.current += chunk;
-        }
-        if (!bufferRef.current.trim()) bufferRef.current = 'No response from the model.';
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unexpected error while requesting the model.');
-        if (tickRef.current) {
-          clearInterval(tickRef.current);
-          tickRef.current = null;
-        }
-        setReply(bufferRef.current);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const logout = () => {
+    clearAccessToken();
+    router.push('/auth/login');
+  };
+
+  if (!authChecked) {
+    return <main className="min-h-screen" />;
+  }
 
   return (
-    <main className="min-h-screen bg-[#072E6A] text-slate-50 flex items-center justify-center px-6 py-8 sm:px-10 sm:py-12">
-      <div className="mx-auto w-full max-w-4xl flex flex-col items-center gap-8">
-        <header className="w-full max-w-2xl space-y-6 text-left">
-          <div className="inline-flex items-center justify-center rounded-2xl bg-[#1C4C9B] px-2 py-2 text-xs font-medium text-slate-100/80">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-[#1C4C9B] text-white shadow-[0_0_18px_rgba(28,76,155,0.9)] -scale-x-100">
-              <svg
-                viewBox="0 0 1024 1024"
-                aria-hidden
-                className="h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-            
-              >
-                <path
-                  d="M512 896a562.368 562.368 0 0 0 137.962667-17.28L810.666667 981.333333v-179.626666c116.608-77.397333 192-198.592 192-335.402667C1002.666667 232.341333 782.933333 42.666667 512 42.666667S21.333333 232.341333 21.333333 466.304 241.066667 896 512 896z m0-810.922667c247.466667 0 448 170.666667 448 381.269334 0 129.514667-76.032 243.754667-192 312.661333v40.533333l-0.704 85.333334-67.221333-41.408c0.746667-0.256 1.557333-0.448 2.325333-0.725334l-38.826667-32.106666a516.501333 516.501333 0 0 1-151.466666 22.848c-247.466667 0-448-176.704-448-387.285334S264.533333 85.034667 512 85.034667z"
-                  fill="#ffffff"
-                />
-              </svg>
-            </span>
-          </div>
-          <div className="space-y-3 mt-2">
-            <p className="text-xl sm:text-2xl font-semibold text-sky-50">
-              Hi there!
-            </p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white">
-              What would you like to know?
-            </h1>
-            <p className="max-w-xl text-sm sm:text-base text-sky-100/80">
-              Use one of the most common prompts below or ask your own question.
-            </p>
-          </div>
-        </header>
+    <main className="min-h-screen text-main p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1300px] grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+        <div className="lg:h-[calc(100vh-3rem)]">
+          <ChatSidebar onCreateChat={handleNewChat} />
+        </div>
 
-        <section className="w-full max-w-2xl flex flex-col items-center gap-4 flex-1 justify-center">
-          {lastQuestion && (
-            <div className="w-full space-y-4">
-              <div className="rounded-2xl bg-[#072E6A] px-4 py-3 text-sm text-slate-50 shadow-[0_18px_40px_rgba(0,0,0,0.4)]">
-                <p className="text-[11px] uppercase tracking-wide font-semibold text-slate-100/80 mb-1">
-                  Your question
-                </p>
-                <p className="whitespace-pre-wrap">{lastQuestion}</p>
-              </div>
-
-              <ChatResponse text={reply ?? ''} streaming={loading} />
+        <GlassPanel strong className="lg:h-[calc(100vh-3rem)] flex flex-col overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold">Chat Workspace</h1>
+              <p className="text-sm text-muted">Choose a chat from the left or create a new one.</p>
             </div>
-          )}
-        </section>
+            <AnimatedButton
+              type="button"
+              onClick={logout}
+              className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm"
+            >
+              Logout
+            </AnimatedButton>
+          </div>
 
-        <footer className="w-full max-w-2xl mt-4">
-          <ChatInput onSend={sendMessage} disabled={loading} error={error} />
-        </footer>
+          <div className="flex-1 grid place-items-center p-6">
+            <div className="max-w-lg text-center space-y-2">
+              <p className="text-xl font-semibold">What do you want to know?</p>
+              <p className="text-sm text-muted">
+                Type your first message. We will create a new chat and set its title automatically.
+              </p>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 px-4 sm:px-6 py-4 border-t border-white/10 bg-black/10 backdrop-blur-md">
+            <ChatInput
+              onSend={handleSendFirstMessage}
+              disabled={sending}
+              value={draft}
+              onValueChange={setDraft}
+              placeholder="Send a message to start a new chat"
+            />
+          </div>
+        </GlassPanel>
       </div>
     </main>
   );

@@ -1,40 +1,55 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useMicLevel } from '@/hooks/useMicLevel';
+import { TypingCaret } from '@/components/ui/TypingCaret';
+import { cn } from '@/lib/cn';
 
 type Props = {
   onSend: (text: string) => void;
   disabled?: boolean;
   error?: string | null;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  placeholder?: string;
 };
 
-export function ChatInput({ onSend, disabled, error }: Props) {
-  const [value, setValue] = useState('');
+export function ChatInput({
+  onSend,
+  disabled,
+  error,
+  value,
+  onValueChange,
+  placeholder = 'Ask whatever you want',
+}: Props) {
+  const [internalValue, setInternalValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceCommittedRef = useRef('');
+  const currentValue = value ?? internalValue;
+  const setCurrentValue = onValueChange ?? setInternalValue;
 
   const handleSubmit = useCallback(() => {
     if (disabled) return;
-    onSend(value);
-    setValue('');
-  }, [value, disabled, onSend]);
+    onSend(currentValue);
+    if (!onValueChange) setInternalValue('');
+  }, [currentValue, disabled, onSend, onValueChange]);
 
   const onVoiceResult = useCallback((text: string, isFinal: boolean) => {
     if (isFinal) {
       voiceCommittedRef.current =
         (voiceCommittedRef.current ? `${voiceCommittedRef.current} ` : '') + text;
-      setValue(voiceCommittedRef.current);
+      setCurrentValue(voiceCommittedRef.current);
     } else {
-      setValue(
+      setCurrentValue(
         voiceCommittedRef.current
           ? `${voiceCommittedRef.current} ${text}`
           : text
       );
     }
     inputRef.current?.focus();
-  }, []);
+  }, [setCurrentValue]);
 
   const {
     isListening,
@@ -50,10 +65,10 @@ export function ChatInput({ onSend, disabled, error }: Props) {
     if (isListening) {
       stopListening();
     } else {
-      voiceCommittedRef.current = value;
+      voiceCommittedRef.current = currentValue;
       startListening();
     }
-  }, [isListening, value, startListening, stopListening]);
+  }, [isListening, currentValue, startListening, stopListening]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -64,47 +79,61 @@ export function ChatInput({ onSend, disabled, error }: Props) {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div
-        className="flex items-stretch h-16 rounded-2xl overflow-hidden
-        bg-[#072E6A]
-        border border-[#1C4C9A] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
+      <motion.div
+        layout
+        className={cn(
+          'flex items-stretch h-14 rounded-2xl overflow-hidden border shadow-[0_10px_30px_rgba(0,0,0,0.22)]',
+          'glass-panel-strong',
+          disabled ? 'opacity-80' : 'accent-glow',
+        )}
       >
         <div className="flex items-center gap-3 flex-1 px-4">
           {isSupported && (
-            <button
+            <motion.button
               type="button"
               onClick={handleMicClick}
               disabled={disabled}
-              title={isListening ? 'Остановить запись' : 'Голосовой ввод'}
-              className="flex items-center justify-center w-9 h-9 rounded-full text-blue-100 hover:bg-blue-800/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isListening ? 'Stop recording' : 'Voice input'}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                'flex items-center justify-center w-10 h-10 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed',
+                isListening
+                  ? 'bg-rose-500/20 text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.45)]'
+                  : 'text-main hover:bg-white/10',
+              )}
             >
               {isListening ? (
                 <LevelBars level={micLevel} className="w-4 h-4" />
               ) : (
                 <MicrophoneIcon className="w-4 h-4" />
               )}
-            </button>
+            </motion.button>
           )}
 
           <input
             ref={inputRef}
             type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
+            value={currentValue}
+            onChange={(e) => setCurrentValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask whatever you want"
+            placeholder={placeholder}
             disabled={disabled}
-            className="flex-1 bg-transparent outline-none text-blue-100 placeholder-blue-300"
+            className="flex-1 bg-transparent outline-none text-sm text-main placeholder:text-[var(--text-muted)]"
           />
+          {disabled && (
+            <span className="text-xs text-muted inline-flex items-center gap-1">
+              Sending
+              <TypingCaret />
+            </span>
+          )}
         </div>
 
-        <button
+        <motion.button
           type="button"
           onClick={handleSubmit}
           disabled={disabled}
-          className="flex items-center justify-center h-full px-5 rounded-2xl
-          bg-[#1C4C9A] hover:bg-[#2455AA]
-          transition-colors disabled:opacity-50"
+          whileTap={{ scale: 0.98 }}
+          className="flex items-center justify-center h-full px-5 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 border-l border-white/15"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -116,8 +145,8 @@ export function ChatInput({ onSend, disabled, error }: Props) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 7l6 5-6 5" />
           </svg>
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
       {(error || voiceError) && (
         <p className="mt-1 text-xs text-red-300">{error ?? voiceError}</p>
       )}

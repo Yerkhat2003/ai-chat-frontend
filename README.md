@@ -56,12 +56,10 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/5be03cd6-1164-4616-8f5d-ed83f0dcf05e" alt="Dashboard" width="454" />
-  <img src="https://github.com/user-attachments/assets/6c818946-cf65-4247-bab5-5988509c56f3" alt="Chat page" width="454" />
+  <img src="https://github.com/user-attachments/assets/5be03cd6-1164-4616-8f5d-ed83f0dcf05e" alt="Dashboard" width="920" />
+  <img src="https://github.com/user-attachments/assets/6c818946-cf65-4247-bab5-5988509c56f3" alt="Chat page" width="920" />
 </p>
 
-> Если редачишь README прямо в GitHub: просто перетащи скрин в редактор, GitHub сам даст ссылку.  
-> Вставь её вместо `PASTE_*_URL_HERE` и всё будет смотреться аккуратно.
 
 ## E2E тесты
 
@@ -84,21 +82,3 @@ pnpm run test:e2e
 - ChatGPT - продумывал архитектуру, декомпозировал сложные куски (auth/rbac/streaming), проверял edge-cases
 
 AI использовался как ассистент, йоу.
-
-## Скриншотики
------------------------------------------------------
-АДМИНКА
------------------------------------------------------
-<img width="1372" height="1021" alt="image" src="https://github.com/user-attachments/assets/89a0f453-08fa-4be5-9fbf-58cd310b03fc" />
------------------------------------------------------
-ДАШБОРД
------------------------------------------------------
-<img width="1232" height="1176" alt="image" src="https://github.com/user-attachments/assets/5e53cd63-f8b7-4e09-99be-27a6369834d7" />
------------------------------------------------------
-ЧАТ
------------------------------------------------------
-<img width="1306" height="1241" alt="image" src="https://github.com/user-attachments/assets/5be03cd6-1164-4616-8f5d-ed83f0dcf05e" />
------------------------------------------------------
-ЛОГИН
------------------------------------------------------
-<img width="878" height="681" alt="image" src="https://github.com/user-attachments/assets/6c818946-cf65-4247-bab5-5988509c56f3" />

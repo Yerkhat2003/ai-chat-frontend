@@ -48,6 +48,20 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 - `/chat/[id]`
 - `/admin`
 
+## Скриншоты
+
+<p align="center">
+  <img src="PASTE_ADMIN_SCREEN_URL_HERE" alt="Admin panel" width="920" />
+</p>
+
+<p align="center">
+  <img src="PASTE_DASHBOARD_SCREEN_URL_HERE" alt="Dashboard" width="454" />
+  <img src="PASTE_CHAT_SCREEN_URL_HERE" alt="Chat page" width="454" />
+</p>
+
+> Если редачишь README прямо в GitHub: просто перетащи скрин в редактор, GitHub сам даст ссылку.  
+> Вставь её вместо `PASTE_*_URL_HERE` и всё будет смотреться аккуратно.
+
 ## E2E тесты
 
 ```bash

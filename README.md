@@ -71,11 +71,19 @@ pnpm run test:e2e
 AI использовался как ассистент, йоу.
 
 ## Скриншотики
+
 АДМИНКА
+
 <img width="1372" height="1021" alt="image" src="https://github.com/user-attachments/assets/89a0f453-08fa-4be5-9fbf-58cd310b03fc" />
+
 ДАШБОРД
+
 <img width="1232" height="1176" alt="image" src="https://github.com/user-attachments/assets/5e53cd63-f8b7-4e09-99be-27a6369834d7" />
+
 ЧАТ
+
 <img width="1306" height="1241" alt="image" src="https://github.com/user-attachments/assets/5be03cd6-1164-4616-8f5d-ed83f0dcf05e" />
+
 ЛОГИН
+
 <img width="878" height="681" alt="image" src="https://github.com/user-attachments/assets/6c818946-cf65-4247-bab5-5988509c56f3" />

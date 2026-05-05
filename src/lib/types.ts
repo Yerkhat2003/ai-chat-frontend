@@ -10,7 +10,16 @@ export type Message = {
   content: string;
   role: 'USER' | 'AI';
   chatId: string;
+  isEdited?: boolean;
+  editedAt?: string | null;
   createdAt: string;
+};
+
+export type MessageEdit = {
+  id: string;
+  messageId: string;
+  previousContent: string;
+  editedAt: string;
 };
 
 export type ChatWithMessages = Chat & {
@@ -31,6 +40,7 @@ export type AdminStats = {
   kpis: {
     totalUsers: number;
     totalAdmins: number;
+    totalSuperadmins?: number;
     totalChats: number;
     totalMessages: number;
   };
@@ -82,4 +92,19 @@ export type AdminUserItem = {
       isSystem: boolean;
     };
   }>;
+};
+
+export type AuditLogItem = {
+  id: string;
+  actorId: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actor: {
+    id: string;
+    email: string;
+    role: 'USER' | 'ADMIN' | 'SUPERADMIN';
+  } | null;
 };

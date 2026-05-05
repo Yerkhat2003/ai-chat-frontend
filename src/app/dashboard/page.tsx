@@ -5,7 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { apiRequest } from '@/lib/api';
-import { clearAccessToken, getCurrentUserRole, isAuthenticated } from '@/lib/auth';
+import {
+  clearAuthTokens,
+  getCurrentUserRole,
+  getRefreshToken,
+  isAuthenticated,
+} from '@/lib/auth';
 import { Chat, PaginatedChats } from '@/lib/types';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
@@ -86,8 +91,19 @@ export default function DashboardPage() {
     }
   };
 
-  const logout = () => {
-    clearAccessToken();
+  const logout = async () => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          body: { refreshToken },
+        });
+      } catch {
+        // local cleanup is enough for client logout
+      }
+    }
+    clearAuthTokens();
     router.push('/auth/login');
   };
 
@@ -117,7 +133,7 @@ export default function DashboardPage() {
               </AnimatedButton>
               <AnimatedButton
                 type="button"
-                onClick={logout}
+                onClick={() => void logout()}
                 className="h-11 rounded-xl border border-white/30 bg-white/5 px-4 text-sm"
               >
                 Logout

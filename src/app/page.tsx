@@ -7,7 +7,7 @@ import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { useToast } from '@/components/ui/ToastProvider';
-import { clearAccessToken, isAuthenticated } from '@/lib/auth';
+import { clearAuthTokens, getRefreshToken, isAuthenticated } from '@/lib/auth';
 import { apiRequest } from '@/lib/api';
 
 export default function Home() {
@@ -69,8 +69,19 @@ export default function Home() {
     setDraft('');
   };
 
-  const logout = () => {
-    clearAccessToken();
+  const logout = async () => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          body: { refreshToken },
+        });
+      } catch {
+        // local cleanup is enough for client logout
+      }
+    }
+    clearAuthTokens();
     router.push('/auth/login');
   };
 
@@ -93,7 +104,7 @@ export default function Home() {
             </div>
             <AnimatedButton
               type="button"
-              onClick={logout}
+              onClick={() => void logout()}
               className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm"
             >
               Logout

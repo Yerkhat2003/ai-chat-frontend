@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { motion } from 'framer-motion';
 import { apiRequest } from '@/lib/api';
-import { setAccessToken } from '@/lib/auth';
+import { setAccessToken, setRefreshToken } from '@/lib/auth';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { useToast } from '@/components/ui/ToastProvider';
 
 type AuthResponse = {
   accessToken: string;
+  refreshToken: string;
 };
 
 export default function RegisterPage() {
@@ -72,6 +73,7 @@ export default function RegisterPage() {
         body: { email, code },
       });
       setAccessToken(data.accessToken);
+      setRefreshToken(data.refreshToken);
       showSuccess('Email verified successfully.');
       router.push('/dashboard');
     } catch (err) {

@@ -11,8 +11,15 @@ import { GlassPanel } from '@/components/ui/GlassPanel';
 import { SkeletonLine } from '@/components/ui/SkeletonLine';
 import { useToast } from '@/components/ui/ToastProvider';
 import { API_URL, apiRequest } from '@/lib/api';
-import { clearAccessToken, getAccessToken, isAuthenticated } from '@/lib/auth';
-import { ChatWithMessages, Message } from '@/lib/types';
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  isAuthenticated,
+  setAccessToken,
+  setRefreshToken,
+} from '@/lib/auth';
+import { ChatWithMessages, Message, MessageEdit } from '@/lib/types';
 import {
   PersonaMode,
   ThemePreset,
@@ -33,6 +40,14 @@ export default function ChatDetailPage() {
   const [sending, setSending] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [expandedHistoryMessageId, setExpandedHistoryMessageId] = useState<
+    string | null
+  >(null);
+  const [messageHistories, setMessageHistories] = useState<
+    Record<string, MessageEdit[]>
+  >({});
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [persona, setPersona] = useState<PersonaMode>('precise');
   const [theme, setTheme] = useState<ThemePreset>('dark');
   const { showError, showSuccess } = useToast();
@@ -119,6 +134,45 @@ export default function ChatDetailPage() {
       return;
     }
 
+    if (editingMessageId) {
+      setSending(true);
+      try {
+        const updated = await apiRequest<Message>(`/messages/${editingMessageId}`, {
+          method: 'PATCH',
+          auth: true,
+          body: { content: trimmed },
+        });
+
+        setChat((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map((message) =>
+              message.id === editingMessageId ? updated : message,
+            ),
+          };
+        });
+        setDraft('');
+        setEditingMessageId(null);
+        showSuccess('Message updated');
+
+        try {
+          const refreshedChat = await apiRequest<ChatWithMessages>(
+            `/chats/${chatId}`,
+            { auth: true },
+          );
+          setChat(refreshedChat);
+        } catch {
+          // Keep local optimistic state if chat refresh fails.
+        }
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Failed to update message');
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
     setSending(true);
     const userMessage: Message = {
       id: `temp-user-${Date.now()}`,
@@ -146,19 +200,48 @@ export default function ChatDetailPage() {
     let assistantContent = '';
 
     try {
-      const token = getAccessToken();
-      const response = await fetch(`${API_URL}/messages/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          chatId,
-          content: trimmed,
-          promptContent: buildPrompt(trimmed),
-        }),
+      const requestBody = JSON.stringify({
+        chatId,
+        content: trimmed,
+        promptContent: buildPrompt(trimmed),
       });
+
+      const doStreamRequest = () => {
+        const token = getAccessToken();
+        return fetch(`${API_URL}/messages/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: requestBody,
+        });
+      };
+
+      let response = await doStreamRequest();
+      if (response.status === 401) {
+        const refreshToken = getRefreshToken();
+        if (refreshToken) {
+          const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          });
+          if (refreshResponse.ok) {
+            const tokens = (await refreshResponse.json()) as {
+              accessToken?: string;
+              refreshToken?: string;
+            };
+            if (tokens.accessToken && tokens.refreshToken) {
+              setAccessToken(tokens.accessToken);
+              setRefreshToken(tokens.refreshToken);
+              response = await doStreamRequest();
+            }
+          } else {
+            clearAuthTokens();
+          }
+        }
+      }
 
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => ({}));
@@ -266,8 +349,19 @@ export default function ChatDetailPage() {
     }
   };
 
-  const logout = () => {
-    clearAccessToken();
+  const logout = async () => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          body: { refreshToken },
+        });
+      } catch {
+        // local cleanup is enough for client logout
+      }
+    }
+    clearAuthTokens();
     router.push('/auth/login');
   };
 
@@ -307,6 +401,38 @@ export default function ChatDetailPage() {
       .find((m) => m.role === 'USER');
     if (previousUser) {
       setDraft(previousUser.content);
+    }
+  };
+
+  const handleEditUserMessage = (messageId: string) => {
+    const target = chat?.messages.find((message) => message.id === messageId);
+    if (!target) return;
+    setEditingMessageId(messageId);
+    setDraft(target.content);
+  };
+
+  const handleToggleMessageHistory = async (messageId: string) => {
+    if (expandedHistoryMessageId === messageId) {
+      setExpandedHistoryMessageId(null);
+      return;
+    }
+
+    setExpandedHistoryMessageId(messageId);
+    if (messageHistories[messageId]) return;
+
+    setHistoryLoadingId(messageId);
+    try {
+      const history = await apiRequest<MessageEdit[]>(`/messages/${messageId}/edits`, {
+        auth: true,
+      });
+      setMessageHistories((prev) => ({
+        ...prev,
+        [messageId]: history,
+      }));
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to load edit history');
+    } finally {
+      setHistoryLoadingId(null);
     }
   };
 
@@ -356,7 +482,7 @@ export default function ChatDetailPage() {
               </select>
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => void logout()}
                 className="rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
               >
                 Logout
@@ -394,8 +520,54 @@ export default function ChatDetailPage() {
                   />
                 ) : (
                   <GlassPanel className="px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-widest text-muted mb-1">You</p>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase tracking-widest text-muted">You</p>
+                      <div className="flex items-center gap-2">
+                        {msg.isEdited ? (
+                          <span className="text-[10px] text-amber-300">Edited</span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => handleEditUserMessage(msg.id)}
+                          className="text-[10px] text-cyan-300 hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleMessageHistory(msg.id)}
+                          className="text-[10px] text-muted hover:underline"
+                        >
+                          History
+                        </button>
+                      </div>
+                    </div>
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    {expandedHistoryMessageId === msg.id && (
+                      <div className="mt-2 rounded-lg border border-white/15 p-2">
+                        {historyLoadingId === msg.id && (
+                          <p className="text-[11px] text-muted">Loading history...</p>
+                        )}
+                        {!historyLoadingId && !(messageHistories[msg.id]?.length > 0) && (
+                          <p className="text-[11px] text-muted">No edits yet.</p>
+                        )}
+                        {!historyLoadingId && messageHistories[msg.id]?.length ? (
+                          <div className="space-y-1">
+                            {messageHistories[msg.id].map((edit, index) => (
+                              <div key={edit.id} className="text-[11px] text-muted">
+                                <p className="font-medium">
+                                  v{messageHistories[msg.id].length - index} ·{' '}
+                                  {new Date(edit.editedAt).toLocaleString()}
+                                </p>
+                                <p className="whitespace-pre-wrap text-main">
+                                  {edit.previousContent}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
                   </GlassPanel>
                 )}
               </motion.div>
@@ -409,6 +581,11 @@ export default function ChatDetailPage() {
               disabled={sending}
               value={draft}
               onValueChange={setDraft}
+              placeholder={
+                editingMessageId
+                  ? 'Edit message and press Enter to save'
+                  : 'Ask whatever you want'
+              }
             />
           </div>
         </GlassPanel>

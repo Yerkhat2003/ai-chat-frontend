@@ -9,16 +9,20 @@ import { SkeletonLine } from '@/components/ui/SkeletonLine';
 import { useToast } from '@/components/ui/ToastProvider';
 import { apiRequest } from '@/lib/api';
 import {
-  clearAccessToken,
+  clearAuthTokens,
   getAuthContext,
+  getAccessToken,
+  getRefreshToken,
   isAuthenticated,
 } from '@/lib/auth';
 import {
   AdminRoleItem,
   AdminStats,
   AdminUserItem,
+  AuditLogItem,
   PermissionItem,
 } from '@/lib/types';
+import { API_URL } from '@/lib/api';
 
 const PIE_COLORS = ['#38bdf8', '#6366f1', '#22c55e', '#f59e0b'];
 type TabKey = 'analytics' | 'roles' | 'users' | 'audit';
@@ -30,6 +34,7 @@ export default function AdminPage() {
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
   const [roles, setRoles] = useState<AdminRoleItem[]>([]);
   const [users, setUsers] = useState<AdminUserItem[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('analytics');
   const [authPermissions, setAuthPermissions] = useState<string[]>([]);
@@ -58,18 +63,22 @@ export default function AdminPage() {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        const [statsData, permissionsData, rolesData, usersData] =
+        const [statsData, permissionsData, rolesData, usersData, logsData] =
           await Promise.all([
             apiRequest<AdminStats>('/admin/stats', { auth: true }),
             apiRequest<PermissionItem[]>('/admin/permissions', { auth: true }),
             apiRequest<AdminRoleItem[]>('/admin/roles', { auth: true }),
             apiRequest<AdminUserItem[]>('/admin/users', { auth: true }),
+            apiRequest<AuditLogItem[]>('/admin/audit-logs?limit=50', {
+              auth: true,
+            }),
           ]);
 
         setStats(statsData);
         setPermissions(permissionsData);
         setRoles(rolesData);
         setUsers(usersData);
+        setAuditLogs(logsData);
       } catch (err) {
         showError(err instanceof Error ? err.message : 'Failed to load admin stats');
       } finally {
@@ -80,8 +89,46 @@ export default function AdminPage() {
     void loadInitialData();
   }, [router, showError]);
 
-  const logout = () => {
-    clearAccessToken();
+  useEffect(() => {
+    if (activeTab !== 'analytics') return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    const stream = new EventSource(
+      `${API_URL}/admin/stats/stream?access_token=${encodeURIComponent(token)}`,
+    );
+
+    stream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as AdminStats;
+        setStats(payload);
+      } catch {
+        // ignore malformed chunks
+      }
+    };
+
+    stream.onerror = () => {
+      stream.close();
+    };
+
+    return () => {
+      stream.close();
+    };
+  }, [activeTab]);
+
+  const logout = async () => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          body: { refreshToken },
+        });
+      } catch {
+        // local cleanup is enough for client logout
+      }
+    }
+    clearAuthTokens();
     router.push('/auth/login');
   };
 
@@ -204,7 +251,7 @@ export default function AdminPage() {
               </AnimatedButton>
               <AnimatedButton
                 type="button"
-                onClick={logout}
+                onClick={() => void logout()}
                 className="h-10 rounded-xl border border-white/30 bg-white/5 px-4 text-sm"
               >
                 Logout
@@ -520,12 +567,30 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'audit' && (
           <GlassPanel strong className="p-5">
-            <h2 className="text-lg font-semibold">Audit feed (next phase)</h2>
-            <p className="mt-2 text-sm text-muted">
-              Permission events and role changes will appear here. Current build
-              includes immutable protections and access controls, but not
-              persistent audit log storage yet.
-            </p>
+            <h2 className="text-lg font-semibold">Audit feed</h2>
+            <div className="mt-3 space-y-2">
+              {auditLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="rounded-xl glass-panel px-3 py-2 text-xs"
+                >
+                  <p className="text-main">
+                    <span className="font-semibold">{log.action}</span> on{' '}
+                    <span className="text-cyan-300">
+                      {log.resourceType}
+                      {log.resourceId ? `:${log.resourceId}` : ''}
+                    </span>
+                  </p>
+                  <p className="text-muted">
+                    by {log.actor?.email ?? 'system'} ·{' '}
+                    {new Date(log.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+              {!auditLogs.length && (
+                <p className="text-sm text-muted">No audit events yet.</p>
+              )}
+            </div>
           </GlassPanel>
         )}
       </div>

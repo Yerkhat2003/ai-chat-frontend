@@ -51,12 +51,13 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ## Скриншоты
 
 <p align="center">
-  <img src="PASTE_ADMIN_SCREEN_URL_HERE" alt="Admin panel" width="920" />
+  <img src="https://github.com/user-attachments/assets/89a0f453-08fa-4be5-9fbf-58cd310b03fc" alt="Admin panel" width="920" />
+  <img src="https://github.com/user-attachments/assets/5e53cd63-f8b7-4e09-99be-27a6369834d7" alt="Admin panel" width="920" />
 </p>
 
 <p align="center">
-  <img src="PASTE_DASHBOARD_SCREEN_URL_HERE" alt="Dashboard" width="454" />
-  <img src="PASTE_CHAT_SCREEN_URL_HERE" alt="Chat page" width="454" />
+  <img src="https://github.com/user-attachments/assets/5be03cd6-1164-4616-8f5d-ed83f0dcf05e" alt="Dashboard" width="454" />
+  <img src="https://github.com/user-attachments/assets/6c818946-cf65-4247-bab5-5988509c56f3" alt="Chat page" width="454" />
 </p>
 
 > Если редачишь README прямо в GitHub: просто перетащи скрин в редактор, GitHub сам даст ссылку.  

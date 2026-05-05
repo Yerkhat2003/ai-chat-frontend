@@ -15,6 +15,8 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { showError } = useToast();
 
   useEffect(() => {
@@ -69,6 +71,10 @@ export default function Home() {
     setDraft('');
   };
 
+  const handleOpenChatFromSidebar = () => {
+    setSidebarOpen(false);
+  };
+
   const logout = async () => {
     const refreshToken = getRefreshToken();
     if (refreshToken) {
@@ -90,28 +96,86 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen text-main p-4 sm:p-6">
-      <div className="mx-auto w-full max-w-[1300px] grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
-        <div className="lg:h-[calc(100vh-3rem)]">
-          <ChatSidebar onCreateChat={handleNewChat} />
+    <main className="h-[100dvh] text-main p-0 sm:min-h-screen sm:p-6">
+      <div className="mx-auto h-full w-full max-w-[1300px] grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-0 sm:gap-4">
+        <div className="hidden lg:block lg:h-[calc(100vh-3rem)]">
+          <ChatSidebar onCreateChat={handleNewChat} onChatOpen={handleOpenChatFromSidebar} />
         </div>
 
-        <GlassPanel strong className="lg:h-[calc(100vh-3rem)] flex flex-col overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+        <GlassPanel strong className="relative h-full sm:h-auto lg:h-[calc(100vh-3rem)] flex flex-col overflow-hidden rounded-none sm:rounded-2xl">
+          <div className="relative z-20 px-4 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden rounded-lg border border-white/25 px-2 py-1 text-xs"
+            >
+              Chats
+            </button>
             <div>
               <h1 className="text-xl font-semibold">Chat Workspace</h1>
               <p className="text-sm text-muted">Choose a chat from the left or create a new one.</p>
             </div>
             <AnimatedButton
               type="button"
-              onClick={() => void logout()}
-              className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="lg:hidden rounded-xl border border-white/30 bg-white/5 px-3 py-2 text-xs"
             >
-              Logout
+              ⋯
             </AnimatedButton>
+            <div className="hidden lg:flex items-center gap-2">
+              <AnimatedButton
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm"
+              >
+                Dashboard
+              </AnimatedButton>
+              <AnimatedButton
+                type="button"
+                onClick={() => void logout()}
+                className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm"
+              >
+                Logout
+              </AnimatedButton>
+            </div>
           </div>
 
-          <div className="flex-1 grid place-items-center p-6">
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+                aria-label="Close menu overlay"
+              />
+              <div className="absolute left-3 right-3 top-16 rounded-2xl border border-white/15 bg-black p-3 text-slate-100 shadow-2xl">
+                <div className="grid grid-cols-2 gap-2">
+                  <AnimatedButton
+                    type="button"
+                    onClick={() => {
+                      router.push('/dashboard');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="h-11 w-full justify-center rounded-xl border border-white/30 bg-white/5 px-3 text-xs text-slate-100"
+                  >
+                    Dashboard
+                  </AnimatedButton>
+                  <AnimatedButton
+                    type="button"
+                    onClick={() => {
+                      void logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="h-11 w-full justify-center rounded-xl border border-white/30 bg-white/5 px-3 text-xs text-slate-100"
+                  >
+                    Logout
+                  </AnimatedButton>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 grid place-items-center p-6">
             <div className="max-w-lg text-center space-y-2">
               <p className="text-xl font-semibold">What do you want to know?</p>
               <p className="text-sm text-muted">
@@ -130,6 +194,23 @@ export default function Home() {
             />
           </div>
         </GlassPanel>
+
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="absolute inset-0 bg-black/60"
+              aria-label="Close sidebar overlay"
+            />
+            <div className="absolute left-0 top-0 h-full w-[86vw] max-w-sm p-3">
+              <ChatSidebar
+                onCreateChat={handleNewChat}
+                onChatOpen={handleOpenChatFromSidebar}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

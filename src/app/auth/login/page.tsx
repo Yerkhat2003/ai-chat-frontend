@@ -42,16 +42,16 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen text-main flex items-center justify-center p-6">
+    <main className="min-h-screen text-main flex items-center justify-center p-4 sm:p-6">
       <motion.form
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         onSubmit={onSubmit}
         className="w-full max-w-md space-y-4"
       >
-        <GlassPanel strong className="p-6 space-y-4">
+        <GlassPanel strong className="p-5 sm:p-6 space-y-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Welcome back</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold">Welcome back</h1>
             <p className="text-sm text-muted">Sign in to continue your conversations.</p>
           </div>
           <input

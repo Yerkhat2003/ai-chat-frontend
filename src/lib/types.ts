@@ -2,6 +2,7 @@ export type Chat = {
   id: string;
   title: string;
   userId: string;
+  pinnedMessageId?: string | null;
   createdAt: string;
 };
 
@@ -29,6 +30,7 @@ export type ChatWithMessages = Chat & {
 export type SharedChatWithMessages = {
   id: string;
   title: string;
+  pinnedMessageId?: string | null;
   createdAt: string;
   messages: Message[];
 };

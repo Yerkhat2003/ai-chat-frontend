@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { GlassPanel } from '@/components/ui/GlassPanel';
+import { PrettySelect, PrettySelectOption } from '@/components/ui/PrettySelect';
 import { SkeletonLine } from '@/components/ui/SkeletonLine';
 import { useToast } from '@/components/ui/ToastProvider';
 import { apiRequest } from '@/lib/api';
@@ -45,6 +47,13 @@ export default function AdminPage() {
     [],
   );
   const [userSearch, setUserSearch] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portalMounted, setPortalMounted] = useState(false);
+  const [roleDraftByUser, setRoleDraftByUser] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setPortalMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -146,6 +155,14 @@ export default function AdminPage() {
   const hasPermission = (permission: string) =>
     authRole === 'SUPERADMIN' || authPermissions.includes(permission);
 
+  const roleOptions = useMemo<PrettySelectOption[]>(
+    () => [
+      { value: '', label: 'Assign role...' },
+      ...roles.map((role) => ({ value: role.id, label: role.name })),
+    ],
+    [roles],
+  );
+
   const refreshRolesAndUsers = async () => {
     const [rolesData, usersData] = await Promise.all([
       apiRequest<AdminRoleItem[]>('/admin/roles', { auth: true }),
@@ -241,7 +258,7 @@ export default function AdminPage() {
               <h1 className="text-2xl font-semibold">Admin command center</h1>
               <p className="text-sm text-muted">Live analytics, trends, and platform activity overview.</p>
             </div>
-            <div className="flex gap-2">
+            <div className="hidden sm:flex gap-2">
               <AnimatedButton
                 type="button"
                 onClick={() => router.push('/dashboard')}
@@ -258,20 +275,67 @@ export default function AdminPage() {
               </AnimatedButton>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <TabButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')}>
-              Analytics
-            </TabButton>
-            <TabButton active={activeTab === 'roles'} onClick={() => setActiveTab('roles')}>
-              Roles
-            </TabButton>
-            <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
-              Users
-            </TabButton>
-            <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')}>
-              Audit
-            </TabButton>
+          <div className="mt-4 flex items-center gap-2">
+            <div className="flex-1 flex gap-2 overflow-x-auto pb-1">
+              <TabButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')}>
+                Analytics
+              </TabButton>
+              <TabButton active={activeTab === 'roles'} onClick={() => setActiveTab('roles')}>
+                Roles
+              </TabButton>
+              <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
+                Users
+              </TabButton>
+              <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')}>
+                Audit
+              </TabButton>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="sm:hidden shrink-0 rounded-lg border border-white/25 px-3 py-2 text-xs"
+            >
+              ⋯
+            </button>
           </div>
+          {portalMounted &&
+            mobileMenuOpen &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-[999] sm:hidden bg-black/45 backdrop-blur-[1px]"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-hidden
+              >
+                <div
+                  className="absolute left-3 right-3 top-16 rounded-2xl border border-white/15 bg-black p-3 text-slate-100 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-2">
+                    <AnimatedButton
+                      type="button"
+                      onClick={() => {
+                        router.push('/dashboard');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="h-11 flex-1 justify-center rounded-xl border border-white/30 bg-white/5 px-3 text-xs text-slate-100"
+                    >
+                      Dashboard
+                    </AnimatedButton>
+                    <AnimatedButton
+                      type="button"
+                      onClick={() => {
+                        void logout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="h-11 flex-1 justify-center rounded-xl border border-white/30 bg-white/5 px-3 text-xs text-slate-100"
+                    >
+                      Logout
+                    </AnimatedButton>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )}
         </GlassPanel>
 
         {loading && (
@@ -285,10 +349,30 @@ export default function AdminPage() {
         {!loading && stats && activeTab === 'analytics' && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <KpiCard label="Total users" value={stats.kpis.totalUsers} hue="from-cyan-400/30 to-blue-500/10" />
-              <KpiCard label="Admins" value={stats.kpis.totalAdmins} hue="from-violet-400/30 to-fuchsia-500/10" />
-              <KpiCard label="Chats" value={stats.kpis.totalChats} hue="from-emerald-400/30 to-lime-500/10" />
-              <KpiCard label="Messages" value={stats.kpis.totalMessages} hue="from-amber-300/30 to-orange-500/10" />
+              <KpiCard
+                label="Total users"
+                value={stats.kpis.totalUsers}
+                hue="from-cyan-400/30 to-blue-500/10"
+                tooltip="All registered accounts in the system."
+              />
+              <KpiCard
+                label="Admins"
+                value={stats.kpis.totalAdmins}
+                hue="from-violet-400/30 to-fuchsia-500/10"
+                tooltip="Users with elevated admin access."
+              />
+              <KpiCard
+                label="Chats"
+                value={stats.kpis.totalChats}
+                hue="from-emerald-400/30 to-lime-500/10"
+                tooltip="Total number of created chat threads."
+              />
+              <KpiCard
+                label="Messages"
+                value={stats.kpis.totalMessages}
+                hue="from-amber-300/30 to-orange-500/10"
+                tooltip="All user + assistant messages stored."
+              />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
@@ -297,22 +381,27 @@ export default function AdminPage() {
                   <h2 className="text-lg font-semibold">Messages trend (7 days)</h2>
                   <span className="text-xs text-muted">Updated: {new Date(stats.generatedAt).toLocaleString()}</span>
                 </div>
-                <div className="grid grid-cols-7 gap-2 h-56 items-end">
+                <div className="grid grid-cols-7 gap-1.5 h-56 items-end pb-5">
                   {stats.activity.dailyMessages.map((point, index) => {
                     const height = Math.max(8, (point.messages / activityMax) * 100);
+                    const shortDate = point.date.slice(5).replace('-', '.');
                     return (
-                      <motion.div
+                      <HoverTooltip
                         key={point.date}
-                        initial={{ height: 0, opacity: 0.3 }}
-                        animate={{ height: `${height}%`, opacity: 1 }}
-                        transition={{ delay: index * 0.06, duration: 0.45 }}
-                        className="relative rounded-xl bg-gradient-to-t from-sky-500/75 to-indigo-400/80"
-                        title={`${point.date}: ${point.messages}`}
+                        content={`${point.date}: ${point.messages} messages`}
+                        className="w-full h-full flex items-end"
                       >
-                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-muted">
-                          {point.date.slice(5)}
-                        </span>
-                      </motion.div>
+                        <motion.div
+                          initial={{ height: 0, opacity: 0.3 }}
+                          animate={{ height: `${height}%`, opacity: 1 }}
+                          transition={{ delay: index * 0.06, duration: 0.45 }}
+                          className="relative w-full rounded-xl bg-gradient-to-t from-sky-500/75 to-indigo-400/80"
+                        >
+                          <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] leading-none text-muted whitespace-nowrap">
+                            {shortDate}
+                          </span>
+                        </motion.div>
+                      </HoverTooltip>
                     );
                   })}
                 </div>
@@ -323,13 +412,19 @@ export default function AdminPage() {
                 <DonutChart items={stats.distributions.roles} />
                 <div className="mt-4 space-y-2">
                   {stats.distributions.roles.map((item, index) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
-                        {item.name}
-                      </span>
-                      <span className="font-medium">{item.value}</span>
-                    </div>
+                    <HoverTooltip
+                      key={item.name}
+                      content={`${item.name}: ${item.value} users`}
+                      className="block"
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                          {item.name}
+                        </span>
+                        <span className="font-medium">{item.value}</span>
+                      </div>
+                    </HoverTooltip>
                   ))}
                 </div>
               </GlassPanel>
@@ -340,16 +435,21 @@ export default function AdminPage() {
                 <h2 className="text-lg font-semibold mb-3">Top chats by message volume</h2>
                 <div className="space-y-2">
                   {stats.rankings.topChats.map((chat, index) => (
-                    <motion.div
+                    <HoverTooltip
                       key={chat.id}
-                      initial={{ opacity: 0, x: -14 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05, duration: 0.25 }}
-                      className="rounded-xl glass-panel px-3 py-2 flex items-center justify-between gap-2"
+                      content={`Chat "${chat.title}" has ${chat.messages} messages`}
+                      className="block"
                     >
-                      <span className="truncate text-sm">{chat.title}</span>
-                      <span className="text-xs text-muted">{chat.messages} msgs</span>
-                    </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, x: -14 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05, duration: 0.25 }}
+                        className="rounded-xl glass-panel px-3 py-2 flex items-center justify-between gap-2"
+                      >
+                        <span className="truncate text-sm">{chat.title}</span>
+                        <span className="text-xs text-muted">{chat.messages} msgs</span>
+                      </motion.div>
+                    </HoverTooltip>
                   ))}
                 </div>
               </GlassPanel>
@@ -357,10 +457,21 @@ export default function AdminPage() {
               <GlassPanel strong className="p-4 sm:p-5">
                 <h2 className="text-lg font-semibold mb-3">System pulse</h2>
                 <div className="space-y-3">
-                  <RadialMeter value={stats.systemHealth} />
+                  <HoverTooltip content="Synthetic health score from activity and load balance." className="block">
+                    <div>
+                      <RadialMeter value={stats.systemHealth} />
+                    </div>
+                  </HoverTooltip>
                   <div className="space-y-1 text-xs text-muted">
-                    <p>Message balance: {stats.distributions.messageRoles[0]?.value ?? 0} user / {stats.distributions.messageRoles[1]?.value ?? 0} ai</p>
-                    <p>Top creator: {stats.rankings.topUsers[0]?.email ?? 'n/a'}</p>
+                    <HoverTooltip
+                      content="User messages versus assistant messages ratio."
+                      className="block"
+                    >
+                      <p>Message balance: {stats.distributions.messageRoles[0]?.value ?? 0} user / {stats.distributions.messageRoles[1]?.value ?? 0} ai</p>
+                    </HoverTooltip>
+                    <HoverTooltip content="Most active chat creator in current dataset." className="block">
+                      <p>Top creator: {stats.rankings.topUsers[0]?.email ?? 'n/a'}</p>
+                    </HoverTooltip>
                   </div>
                 </div>
               </GlassPanel>
@@ -440,10 +551,10 @@ export default function AdminPage() {
                     className="rounded-xl glass-panel p-3 space-y-2"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div>
+                      <span className="inline-flex items-center gap-2">
                         <p className="text-sm font-semibold">{role.name}</p>
                         <p className="text-xs text-muted">{role.description || 'No description'}</p>
-                      </div>
+                      </span>
                       <div className="flex items-center gap-2">
                         {role.isSystem && (
                           <span className="text-[10px] rounded-full border border-white/25 px-2 py-0.5 text-muted">
@@ -512,27 +623,18 @@ export default function AdminPage() {
                         Legacy role: {user.role} · verified: {user.emailVerified ? 'yes' : 'no'}
                       </p>
                     </div>
-                    <select
+                    <PrettySelect
+                      value={roleDraftByUser[user.id] ?? ''}
+                      options={roleOptions}
                       disabled={!hasPermission('users.roles.assign')}
-                      defaultValue=""
-                      onChange={(e) => {
-                        const selectedRoleId = e.target.value;
-                        e.target.value = '';
-                        if (selectedRoleId) {
-                          void assignRole(user.id, selectedRoleId);
-                        }
+                      onChange={(nextRoleId) => {
+                        setRoleDraftByUser((prev) => ({ ...prev, [user.id]: nextRoleId }));
+                        if (!nextRoleId) return;
+                        void assignRole(user.id, nextRoleId);
+                        setRoleDraftByUser((prev) => ({ ...prev, [user.id]: '' }));
                       }}
-                      className="h-9 rounded-lg glass-panel px-2 text-xs outline-none disabled:opacity-50"
-                    >
-                      <option value="" disabled>
-                        Assign role...
-                      </option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
+                      className="min-h-0 h-9 min-w-[170px] rounded-lg px-2 text-xs disabled:opacity-50"
+                    />
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
@@ -611,7 +713,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-4 py-2 text-sm transition ${
+      className={`shrink-0 whitespace-nowrap rounded-xl border px-4 py-2 text-sm transition ${
         active
           ? 'border-cyan-300/40 bg-cyan-500/20'
           : 'border-white/25 bg-white/5 hover:bg-white/10'
@@ -622,17 +724,29 @@ function TabButton({
   );
 }
 
-function KpiCard({ label, value, hue }: { label: string; value: number; hue: string }) {
+function KpiCard({
+  label,
+  value,
+  hue,
+  tooltip,
+}: {
+  label: string;
+  value: number;
+  hue: string;
+  tooltip: string;
+}) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28 }}
-      className={`rounded-2xl border border-white/15 bg-gradient-to-br ${hue} p-4 shadow-[0_14px_35px_rgba(0,0,0,0.24)]`}
-    >
-      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-2 text-3xl font-semibold">{value.toLocaleString()}</p>
-    </motion.div>
+    <HoverTooltip content={tooltip} className="block">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28 }}
+        className={`rounded-2xl border border-white/15 bg-gradient-to-br ${hue} p-4 shadow-[0_14px_35px_rgba(0,0,0,0.24)]`}
+      >
+        <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+        <p className="mt-2 text-3xl font-semibold">{value.toLocaleString()}</p>
+      </motion.div>
+    </HoverTooltip>
   );
 }
 
@@ -643,37 +757,39 @@ function DonutChart({ items }: { items: Array<{ name: string; value: number }> }
   const circumference = 2 * Math.PI * radius;
 
   return (
-    <div className="relative mx-auto h-40 w-40">
-      <svg viewBox="0 0 160 160" className="h-40 w-40 -rotate-90">
-        <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(148,163,184,0.18)" strokeWidth="16" />
-        {items.map((item, index) => {
-          const length = (item.value / total) * circumference;
-          const segment = (
-            <motion.circle
-              key={item.name}
-              cx="80"
-              cy="80"
-              r={radius}
-              fill="none"
-              stroke={PIE_COLORS[index % PIE_COLORS.length]}
-              strokeWidth="16"
-              strokeDasharray={`${length} ${circumference - length}`}
-              strokeDashoffset={-cumulative}
-              initial={{ strokeDasharray: `0 ${circumference}` }}
-              animate={{ strokeDasharray: `${length} ${circumference - length}` }}
-              transition={{ duration: 0.6, delay: index * 0.08 }}
-              strokeLinecap="round"
-            />
-          );
-          cumulative += length;
-          return segment;
-        })}
-      </svg>
-      <div className="absolute inset-0 grid place-items-center text-center">
-        <p className="text-xs text-muted">Total</p>
-        <p className="text-xl font-semibold">{items.reduce((sum, item) => sum + item.value, 0)}</p>
+    <HoverTooltip content="Share of users per role category." className="block">
+      <div className="relative mx-auto h-40 w-40">
+        <svg viewBox="0 0 160 160" className="h-40 w-40 -rotate-90">
+          <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(148,163,184,0.18)" strokeWidth="16" />
+          {items.map((item, index) => {
+            const length = (item.value / total) * circumference;
+            const segment = (
+              <motion.circle
+                key={item.name}
+                cx="80"
+                cy="80"
+                r={radius}
+                fill="none"
+                stroke={PIE_COLORS[index % PIE_COLORS.length]}
+                strokeWidth="16"
+                strokeDasharray={`${length} ${circumference - length}`}
+                strokeDashoffset={-cumulative}
+                initial={{ strokeDasharray: `0 ${circumference}` }}
+                animate={{ strokeDasharray: `${length} ${circumference - length}` }}
+                transition={{ duration: 0.6, delay: index * 0.08 }}
+                strokeLinecap="round"
+              />
+            );
+            cumulative += length;
+            return segment;
+          })}
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-center">
+          <p className="text-xs text-muted">Total</p>
+          <p className="text-xl font-semibold">{items.reduce((sum, item) => sum + item.value, 0)}</p>
+        </div>
       </div>
-    </div>
+    </HoverTooltip>
   );
 }
 
@@ -702,6 +818,25 @@ function RadialMeter({ value }: { value: number }) {
       </svg>
       <div className="absolute inset-0 grid place-items-center">
         <p className="text-2xl font-semibold">{progress}%</p>
+      </div>
+    </div>
+  );
+}
+
+function HoverTooltip({
+  content,
+  children,
+  className = '',
+}: {
+  content: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`group relative ${className}`}>
+      {children}
+      <div className="pointer-events-none absolute left-1/2 top-0 z-20 w-max max-w-[260px] -translate-x-1/2 -translate-y-[110%] rounded-lg border border-white/20 bg-black/90 px-2 py-1 text-[11px] text-white opacity-0 shadow-xl transition-opacity duration-200 group-hover:opacity-100">
+        {content}
       </div>
     </div>
   );

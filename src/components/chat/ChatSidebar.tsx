@@ -15,6 +15,7 @@ const FAVORITES_KEY = 'favoriteChatIds';
 type Props = {
   activeChatId?: string;
   onCreateChat?: () => void | Promise<void>;
+  onChatOpen?: () => void;
 };
 
 function getFavorites(): string[] {
@@ -32,7 +33,7 @@ function setFavorites(ids: string[]): void {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids));
 }
 
-export function ChatSidebar({ activeChatId, onCreateChat }: Props) {
+export function ChatSidebar({ activeChatId, onCreateChat, onChatOpen }: Props) {
   const [items, setItems] = useState<Chat[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -124,7 +125,11 @@ export function ChatSidebar({ activeChatId, onCreateChat }: Props) {
               )}
             >
               <div className="flex items-start gap-2">
-                <Link href={`/chat/${chat.id}`} className="flex-1 text-sm truncate">
+                <Link
+                  href={`/chat/${chat.id}`}
+                  onClick={onChatOpen}
+                  className="flex-1 text-sm truncate"
+                >
                   {chat.title}
                 </Link>
                 <button

@@ -8,6 +8,7 @@ import { ChatInput } from '@/components/ChatInput';
 import { ChatResponse } from '@/components/ChatResponse';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { GlassPanel } from '@/components/ui/GlassPanel';
+import { PrettySelect, PrettySelectOption } from '@/components/ui/PrettySelect';
 import { SkeletonLine } from '@/components/ui/SkeletonLine';
 import { useToast } from '@/components/ui/ToastProvider';
 import { API_URL, apiRequest } from '@/lib/api';
@@ -30,6 +31,35 @@ import {
   setThemePreset,
 } from '@/lib/preferences';
 
+const PROMPT_TEMPLATES = [
+  {
+    id: 'simple',
+    label: 'Explain simply',
+    prefix: 'Explain this like I am a beginner. ',
+  },
+  {
+    id: 'plan',
+    label: 'Make a plan',
+    prefix: 'Create a step-by-step action plan for this request. ',
+  },
+  {
+    id: 'checklist',
+    label: 'Checklist',
+    prefix: 'Answer as a clear checklist with practical items. ',
+  },
+];
+
+const PERSONA_OPTIONS: PrettySelectOption[] = [
+  { value: 'creative', label: 'Creative' },
+  { value: 'precise', label: 'Precise' },
+  { value: 'fast', label: 'Fast' },
+];
+
+const THEME_OPTIONS: PrettySelectOption[] = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+];
+
 export default function ChatDetailPage() {
   const params = useParams<{ id: string }>();
   const chatId = useMemo(() => params?.id ?? '', [params]);
@@ -50,6 +80,11 @@ export default function ChatDetailPage() {
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [persona, setPersona] = useState<PersonaMode>('precise');
   const [theme, setTheme] = useState<ThemePreset>('dark');
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
+  const [autoVoice, setAutoVoice] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userActionMenuId, setUserActionMenuId] = useState<string | null>(null);
   const { showError, showSuccess } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +148,11 @@ export default function ChatDetailPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [chat?.messages, sending]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setUserActionMenuId(null);
+  }, [chatId]);
 
   const buildPrompt = (text: string): string => {
     const trimmed = text.trim();
@@ -308,6 +348,10 @@ export default function ChatDetailPage() {
         };
       });
 
+      if (autoVoice && assistantContent.trim()) {
+        toggleSpeakMessage(aiMessageId, assistantContent);
+      }
+
       try {
         let syncedChat: ChatWithMessages | null = null;
         for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -366,7 +410,12 @@ export default function ChatDetailPage() {
   };
 
   const handleCreateSidebarChat = () => {
+    setSidebarOpen(false);
     router.push('/');
+  };
+
+  const handleOpenChatFromSidebar = () => {
+    setSidebarOpen(false);
   };
 
   const shareCurrentChat = async () => {
@@ -484,64 +533,238 @@ export default function ChatDetailPage() {
     applyThemeClass(preset);
   };
 
+  const applyTemplate = (templatePrefix: string) => {
+    setDraft((prev) => `${templatePrefix}${prev}`.trimStart());
+  };
+
+  const togglePinMessage = async (messageId: string) => {
+    if (!chat) return;
+    const nextPinnedId = chat.pinnedMessageId === messageId ? null : messageId;
+    try {
+      const data = await apiRequest<{ pinnedMessageId: string | null }>(
+        `/chats/${chat.id}/pin`,
+        {
+          method: 'PATCH',
+          auth: true,
+          body: { messageId: nextPinnedId },
+        },
+      );
+      setChat((prev) => (prev ? { ...prev, pinnedMessageId: data.pinnedMessageId } : prev));
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to pin message');
+    }
+  };
+
+  const toggleSpeakMessage = (messageId: string, text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      showError('Voice playback is not supported in this browser');
+      return;
+    }
+
+    if (currentlySpeakingId === messageId) {
+      window.speechSynthesis.cancel();
+      setCurrentlySpeakingId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onend = () => {
+      setCurrentlySpeakingId((prev) => (prev === messageId ? null : prev));
+    };
+    utterance.onerror = () => {
+      setCurrentlySpeakingId((prev) => (prev === messageId ? null : prev));
+    };
+    setCurrentlySpeakingId(messageId);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const pinnedMessage = chat?.messages.find(
+    (message) => message.id === chat?.pinnedMessageId,
+  );
+
   return (
-    <main className="min-h-screen text-main p-4 sm:p-6">
-      <div className="mx-auto w-full max-w-[1300px] grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
-        <div className="lg:h-[calc(100vh-3rem)]">
-          <ChatSidebar activeChatId={chatId} onCreateChat={handleCreateSidebarChat} />
+    <main className="h-[100dvh] text-main p-0 sm:min-h-screen sm:p-6">
+      <div className="mx-auto h-full w-full max-w-[1300px] grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-0 sm:gap-4">
+        <div className="hidden lg:block lg:h-[calc(100vh-3rem)]">
+          <ChatSidebar
+            activeChatId={chatId}
+            onCreateChat={handleCreateSidebarChat}
+            onChatOpen={handleOpenChatFromSidebar}
+          />
         </div>
 
-        <GlassPanel strong className="lg:h-[calc(100vh-3rem)] flex flex-col overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+        <GlassPanel strong className="relative h-full sm:h-auto lg:h-[calc(100vh-3rem)] flex flex-col overflow-hidden rounded-none sm:rounded-2xl">
+          <div className="relative z-20 px-4 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard" className="text-xs uppercase tracking-widest text-muted hover:text-white">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden rounded-lg border border-white/25 px-2 py-1 text-xs"
+              >
+                Chats
+              </button>
+              <Link href="/dashboard" className="hidden sm:block text-xs uppercase tracking-widest text-muted hover:text-white">
                 Dashboard
               </Link>
               <h1 className="text-lg sm:text-xl font-semibold truncate">{chat?.title ?? 'Chat'}</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 flex-nowrap">
               <button
                 type="button"
                 onClick={() => void shareCurrentChat()}
-                className="rounded-lg border border-cyan-300/35 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-500/10 transition"
+                className="h-8 whitespace-nowrap rounded-lg border border-cyan-300/35 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-500/10 transition"
               >
                 Share
               </button>
               <button
                 type="button"
                 onClick={() => void renameCurrentChat()}
-                className="rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
+                className="h-8 whitespace-nowrap rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
               >
                 Rename
               </button>
-              <select
+              <PrettySelect
                 value={persona}
-                onChange={(e) => onPersonaChange(e.target.value as PersonaMode)}
-                className="rounded-lg glass-panel px-2 py-1 text-xs outline-none text-main"
-              >
-                <option value="creative">Creative</option>
-                <option value="precise">Precise</option>
-                <option value="fast">Fast</option>
-              </select>
-              <select
+                options={PERSONA_OPTIONS}
+                onChange={(nextValue) => onPersonaChange(nextValue as PersonaMode)}
+                className="min-h-0 h-8 min-w-[92px] rounded-lg px-2 py-1 text-xs"
+              />
+              <PrettySelect
                 value={theme}
-                onChange={(e) => onThemeChange(e.target.value as ThemePreset)}
-                className="rounded-lg glass-panel px-2 py-1 text-xs outline-none text-main"
+                options={THEME_OPTIONS}
+                onChange={(nextValue) => onThemeChange(nextValue as ThemePreset)}
+                className="min-h-0 h-8 min-w-[92px] rounded-lg px-2 py-1 text-xs"
+              />
+              <button
+                type="button"
+                onClick={() => setAutoVoice((prev) => !prev)}
+                className="h-8 whitespace-nowrap rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
               >
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-              </select>
+                {autoVoice ? 'Auto voice on' : 'Auto voice off'}
+              </button>
               <button
                 type="button"
                 onClick={() => void logout()}
-                className="rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
+                className="h-8 whitespace-nowrap rounded-lg border border-white/25 px-2 py-1 text-xs hover:bg-white/10 transition text-main"
               >
                 Logout
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="sm:hidden rounded-lg border border-white/25 px-2 py-1 text-xs"
+            >
+              ⋯
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-50 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+                aria-label="Close mobile actions menu"
+              />
+              <div className="absolute left-3 right-3 top-16 rounded-2xl border border-white/15 bg-black p-3 text-slate-100 shadow-2xl">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push('/dashboard');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border border-white/25 px-2 py-2 text-xs text-slate-100"
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void shareCurrentChat();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border border-cyan-300/35 px-2 py-2 text-xs text-cyan-200"
+                  >
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void renameCurrentChat();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border border-white/25 px-2 py-2 text-xs text-slate-100"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoVoice((prev) => !prev);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border border-white/25 px-2 py-2 text-xs text-slate-100"
+                  >
+                    {autoVoice ? 'Auto voice on' : 'Auto voice off'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border border-white/25 px-2 py-2 text-xs text-slate-100"
+                  >
+                    Logout
+                  </button>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <PrettySelect
+                    value={persona}
+                    options={PERSONA_OPTIONS}
+                    onChange={(nextValue) => {
+                      onPersonaChange(nextValue as PersonaMode);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="min-h-0 h-10 w-full rounded-lg px-2 py-2 text-xs"
+                    variant="dark"
+                  />
+                  <PrettySelect
+                    value={theme}
+                    options={THEME_OPTIONS}
+                    onChange={(nextValue) => {
+                      onThemeChange(nextValue as ThemePreset);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="min-h-0 h-10 w-full rounded-lg px-2 py-2 text-xs"
+                    variant="dark"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
+            {pinnedMessage && (
+              <GlassPanel className="px-3 py-2 border border-amber-300/30">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-widest text-amber-300">Pinned highlight</p>
+                  <button
+                    type="button"
+                    onClick={() => void togglePinMessage(pinnedMessage.id)}
+                    className="text-[10px] text-muted hover:underline"
+                  >
+                    Unpin
+                  </button>
+                </div>
+                <p className="text-sm whitespace-pre-wrap">{pinnedMessage.content}</p>
+              </GlassPanel>
+            )}
             {loading && (
               <div className="space-y-3">
                 <SkeletonLine className="w-32" />
@@ -559,7 +782,9 @@ export default function ChatDetailPage() {
                 key={msg.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={msg.role === 'USER' ? 'ml-auto max-w-[85%]' : 'mr-auto max-w-[90%]'}
+                className={`relative overflow-visible ${
+                  msg.role === 'USER' ? 'ml-auto max-w-[85%]' : 'mr-auto max-w-[90%]'
+                } ${userActionMenuId === msg.id ? 'z-30' : 'z-0'}`}
               >
                 {msg.role === 'AI' ? (
                   <ChatResponse
@@ -568,12 +793,17 @@ export default function ChatDetailPage() {
                     onCopy={() => void handleCopy(msg.content)}
                     onRegenerate={() => void handleRegenerate(msg.id)}
                     onEditPrompt={() => handleEditPrompt(msg.id)}
+                    onSpeakToggle={() => toggleSpeakMessage(msg.id, msg.content)}
+                    speaking={currentlySpeakingId === msg.id}
+                    onPinToggle={() => void togglePinMessage(msg.id)}
+                    pinned={chat?.pinnedMessageId === msg.id}
+                    compactActions
                   />
                 ) : (
                   <GlassPanel className="px-3 py-2">
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <p className="text-[10px] uppercase tracking-widest text-muted">You</p>
-                      <div className="flex items-center gap-2">
+                      <div className="hidden sm:flex items-center gap-2">
                         {msg.isEdited ? (
                           <span className="text-[10px] text-amber-300">Edited</span>
                         ) : null}
@@ -591,6 +821,58 @@ export default function ChatDetailPage() {
                         >
                           History
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => void togglePinMessage(msg.id)}
+                          className="text-[10px] text-amber-300 hover:underline"
+                        >
+                          {chat?.pinnedMessageId === msg.id ? 'Unpin' : 'Pin'}
+                        </button>
+                      </div>
+                      <div className="relative sm:hidden">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setUserActionMenuId((prev) => (prev === msg.id ? null : msg.id))
+                          }
+                          className="rounded border border-white/20 px-2 py-1 text-[10px]"
+                        >
+                          Actions
+                        </button>
+                        {userActionMenuId === msg.id && (
+                          <div className="absolute right-0 top-full mt-2 z-40 w-28 rounded-lg border border-white/20 bg-black p-1 text-slate-100 shadow-xl">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditUserMessage(msg.id);
+                                setUserActionMenuId(null);
+                              }}
+                              className="w-full rounded px-2 py-1 text-left text-[10px] text-slate-100 hover:bg-white/10"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleToggleMessageHistory(msg.id);
+                                setUserActionMenuId(null);
+                              }}
+                              className="w-full rounded px-2 py-1 text-left text-[10px] text-slate-100 hover:bg-white/10"
+                            >
+                              History
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void togglePinMessage(msg.id);
+                                setUserActionMenuId(null);
+                              }}
+                              className="w-full rounded px-2 py-1 text-left text-[10px] text-slate-100 hover:bg-white/10"
+                            >
+                              {chat?.pinnedMessageId === msg.id ? 'Unpin' : 'Pin'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -627,6 +909,18 @@ export default function ChatDetailPage() {
           </div>
 
           <div className="sticky bottom-0 px-4 sm:px-6 py-4 border-t border-white/10 bg-black/10 backdrop-blur-md">
+            <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
+              {PROMPT_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => applyTemplate(template.prefix)}
+                  className="shrink-0 rounded-lg border border-white/20 px-2 py-1 text-xs text-muted hover:text-main hover:bg-white/10 transition"
+                >
+                  {template.label}
+                </button>
+              ))}
+            </div>
             <ChatInput
               onSend={sendMessage}
               disabled={sending}
@@ -640,6 +934,24 @@ export default function ChatDetailPage() {
             />
           </div>
         </GlassPanel>
+
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="absolute inset-0 bg-black/60"
+              aria-label="Close sidebar overlay"
+            />
+            <div className="absolute left-0 top-0 h-full w-[86vw] max-w-sm p-3">
+              <ChatSidebar
+                activeChatId={chatId}
+                onCreateChat={handleCreateSidebarChat}
+                onChatOpen={handleOpenChatFromSidebar}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

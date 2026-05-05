@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [chatActionMenuId, setChatActionMenuId] = useState<string | null>(null);
   const { showError } = useToast();
 
   const canPrev = useMemo(() => page > 1, [page]);
@@ -134,7 +136,7 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-semibold">Chats</h1>
               <p className="text-sm text-muted">Fast access to all conversations and quick start for a new one.</p>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="hidden sm:flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
@@ -166,7 +168,68 @@ export default function DashboardPage() {
                 </AnimatedButton>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="sm:hidden self-end rounded-lg border border-white/25 px-3 py-2 text-xs"
+            >
+              ⋯
+            </button>
           </div>
+
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-50 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+                aria-label="Close dashboard mobile menu"
+              />
+              <div className="absolute left-3 right-3 top-16 rounded-2xl border border-white/15 bg-black p-3 text-slate-100 shadow-2xl">
+                <input
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Start with a chat title"
+                  className="h-11 w-full rounded-xl glass-panel px-3 text-sm outline-none"
+                />
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <AnimatedButton
+                    type="button"
+                    onClick={() => {
+                      void createChat();
+                      setMobileMenuOpen(false);
+                    }}
+                    disabled={creating}
+                    className="h-11 w-full justify-center rounded-xl bg-white/15 px-3 text-xs font-medium text-slate-100 disabled:opacity-60"
+                  >
+                    {creating ? 'Creating...' : 'Create chat'}
+                  </AnimatedButton>
+                  <AnimatedButton
+                    type="button"
+                    onClick={() => {
+                      void logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="h-11 w-full justify-center rounded-xl border border-white/30 bg-white/5 px-3 text-xs text-slate-100"
+                  >
+                    Logout
+                  </AnimatedButton>
+                  {isAdmin && (
+                    <AnimatedButton
+                      type="button"
+                      onClick={() => {
+                        router.push('/admin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="h-11 w-full justify-center rounded-xl bg-cyan-500/20 border border-cyan-300/35 px-3 text-xs text-slate-100 col-span-2"
+                    >
+                      Admin Studio
+                    </AnimatedButton>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-4">
             <input
@@ -195,12 +258,14 @@ export default function DashboardPage() {
               key={chat.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between gap-3 rounded-xl glass-panel px-3 py-3"
+              className={`relative overflow-visible flex items-center justify-between gap-3 rounded-xl glass-panel px-3 py-3 ${
+                chatActionMenuId === chat.id ? 'z-30' : 'z-0'
+              }`}
             >
               <Link href={`/chat/${chat.id}`} className="truncate text-sm font-medium hover:underline">
                 {chat.title}
               </Link>
-              <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => void renameChat(chat.id, chat.title)}
@@ -216,27 +281,62 @@ export default function DashboardPage() {
                   Delete
                 </button>
               </div>
+              <div className="relative sm:hidden">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setChatActionMenuId((prev) => (prev === chat.id ? null : chat.id))
+                  }
+                  className="rounded-lg border border-white/25 px-2 py-1 text-xs"
+                >
+                  Actions
+                </button>
+                {chatActionMenuId === chat.id && (
+                  <div className="absolute right-0 top-full mt-2 z-40 w-28 rounded-lg border border-white/20 bg-black p-1 text-slate-100 shadow-xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void renameChat(chat.id, chat.title);
+                        setChatActionMenuId(null);
+                      }}
+                      className="w-full rounded px-2 py-1 text-left text-xs text-slate-100 hover:bg-white/10"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void deleteChat(chat.id);
+                        setChatActionMenuId(null);
+                      }}
+                      className="w-full rounded px-2 py-1 text-left text-xs text-red-300 hover:bg-white/10"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
             </motion.div>
           ))}
         </GlassPanel>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <AnimatedButton
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={!canPrev}
-            className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm disabled:opacity-40"
+            className="rounded-xl border border-white/30 bg-white/5 px-3 sm:px-4 py-2 text-xs sm:text-sm disabled:opacity-40"
           >
             Prev
           </AnimatedButton>
-          <span className="text-sm text-muted">
+          <span className="text-xs sm:text-sm text-muted text-center">
             Page {page} of {totalPages}
           </span>
           <AnimatedButton
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={!canNext}
-            className="rounded-xl border border-white/30 bg-white/5 px-4 py-2 text-sm disabled:opacity-40"
+            className="rounded-xl border border-white/30 bg-white/5 px-3 sm:px-4 py-2 text-xs sm:text-sm disabled:opacity-40"
           >
             Next
           </AnimatedButton>
